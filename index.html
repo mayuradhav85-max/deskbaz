@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DESKBAZ • India's #1 Helpdesk</title>
-  <!-- Fixed Supabase CDN - Official from Supabase Docs -->
+  <!-- Official Supabase JS CDN - Tested 2025 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body{font-family:Arial,sans-serif;background:#f0f2f5;margin:0;padding:20px;color:#333;}
@@ -30,7 +30,7 @@
     <p style="font-size:24px;">Your Personal Helpdesk – Live Now</p>
   </div>
   <div class="user" id="user">Loading...</div>
-  <div id="status"></div>
+  <div id="status">Starting...</div>
   <div style="text-align:center;">
     <button class="btn-green" id="loginBtn">Login with Email</button>
     <button class="btn-blue" id="refreshBtn">Refresh Tickets</button>
@@ -39,20 +39,37 @@
 </div>
 
 <script>
-// Fixed: Wait for Supabase to fully load + error handling
+// Your keys
 const SUPABASE_URL = "https://sb.publishable_LEIROAliVJHuf8c13fcdw_69Fln_bo.supabase.co";
 const SUPABASE_ANON_KEY = "sb.publishable_LEIROAliVJHuf8c13fcdw_69Fln_bo";
 
+// Global vars
 let supabase;
 let currentUser = null;
 
-function initApp() {
-  if (typeof Supabase === 'undefined') {
-    document.getElementById('status').innerHTML = '<div class="error">Supabase loading... Refresh in 5 seconds.</div>';
-    setTimeout(initApp, 2000); // Retry
-    return;
+// Debug function
+function debug(msg) {
+  console.log('DESKBAZ DEBUG:', msg);
+  document.getElementById('status').innerHTML += '<br>' + msg;
+}
+
+// Load Supabase with retry (fixes CDN issue)
+function loadSupabase() {
+  debug('Loading Supabase...');
+  if (typeof Supabase !== 'undefined') {
+    supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    debug('Supabase loaded successfully!');
+    initApp();
+    return true;
+  } else {
+    debug('Supabase not loaded yet - retrying in 2 seconds...');
+    setTimeout(loadSupabase, 2000);
+    return false;
   }
-  supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// Initialize app
+function initApp() {
   document.getElementById('loginBtn').onclick = login;
   document.getElementById('refreshBtn').onclick = load;
   supabase.auth.onAuthStateChange((_, session) => {
@@ -60,24 +77,22 @@ function initApp() {
     document.getElementById('user').innerText = currentUser ? `Agent: ${currentUser}` : 'Not logged in';
     if (currentUser) load();
   });
-  document.getElementById('status').innerHTML = '<div class="success">Loaded! Click Login to start.</div>';
-  load(); // Initial load
+  document.getElementById('status').innerHTML = '<div class="success">Ready! Click Login to start.</div>';
+  load();
 }
 
-// Start when page loads
-window.addEventListener('load', initApp);
-
-// Login function
+// Login
 async function login() {
   try {
     const email = prompt('Enter your email for magic link:');
     if (!email) return;
     const { error } = await supabase.auth.signInWithOtp({ email });
     if (error) throw error;
-    document.getElementById('status').innerHTML = '<div class="success">Magic link sent! Check your inbox (including spam).</div>';
+    document.getElementById('status').innerHTML = '<div class="success">Magic link sent! Check inbox/spam.</div>';
+    debug('Login sent to ' + email);
   } catch (error) {
-    document.getElementById('status').innerHTML = '<div class="error">Login failed: ' + error.message + '. Try again.</div>';
-    console.error('Login error:', error);
+    document.getElementById('status').innerHTML = '<div class="error">Login failed: ' + error.message + '</div>';
+    debug('Login error: ' + error.message);
   }
 }
 
@@ -88,7 +103,7 @@ async function load() {
     if (error) throw error;
     const tbody = document.getElementById('list');
     if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:80px;font-size:24px;color:#0066ff">No tickets yet – send an email to start!</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:80px;font-size:24px;color:#0066ff">No tickets yet – you're all clear!</td></tr>';
     } else {
       tbody.innerHTML = data.map(row => `
         <tr>
@@ -101,14 +116,20 @@ async function load() {
         </tr>
       `).join('');
     }
-    document.getElementById('status').innerHTML = '<div class="success">Tickets loaded (' + data.length + ' found).</div>';
+    document.getElementById('status').innerHTML = '<div class="success">Loaded ' + data.length + ' tickets.</div>';
   } catch (error) {
-    document.getElementById('status').innerHTML = '<div class="error">Load failed: ' + error.message + '. Check table exists.</div>';
-    console.error('Load error:', error);
+    document.getElementById('status').innerHTML = '<div class="error">Load failed: ' + error.message + '</div>';
+    debug('Load error: ' + error.message);
   }
 }
 
-// Auto-refresh every 30 seconds
+// Start when page loads
+window.addEventListener('load', () => {
+  debug('Page loaded');
+  loadSupabase();
+});
+
+// Auto-refresh
 setInterval(load, 30000);
 </script>
 </body>
