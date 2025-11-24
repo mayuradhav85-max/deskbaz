@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DESKBAZ • India's #1 Helpdesk</title>
-  <!-- Fixed Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- Fixed Supabase CDN - Official from Supabase Docs -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body{font-family:Arial,sans-serif;background:#f0f2f5;margin:0;padding:20px;color:#333;}
     .main{max-width:1400px;margin:auto;background:white;border-radius:15px;padding:30px;box-shadow:0 10px 40px rgba(0,0,0,0.15);}
@@ -20,6 +20,7 @@
     .user{font-size:22px;font-weight:bold;color:#0066ff;text-align:center;margin:30px;}
     .error{color:#d32f2f;text-align:center;font-size:18px;}
     .success{color:#137333;text-align:center;font-size:18px;}
+    #status{margin:20px;text-align:center;}
   </style>
 </head>
 <body>
@@ -38,25 +39,20 @@
 </div>
 
 <script>
-// Fixed: Global Supabase object + error handling
+// Fixed: Wait for Supabase to fully load + error handling
 const SUPABASE_URL = "https://sb.publishable_LEIROAliVJHuf8c13fcdw_69Fln_bo.supabase.co";
 const SUPABASE_ANON_KEY = "sb.publishable_LEIROAliVJHuf8c13fcdw_69Fln_bo";
 
 let supabase;
 let currentUser = null;
 
-// Wait for Supabase to load
-window.addEventListener('load', () => {
+function initApp() {
   if (typeof Supabase === 'undefined') {
-    document.getElementById('status').innerHTML = '<div class="error">Supabase library failed to load. Refresh page.</div>';
+    document.getElementById('status').innerHTML = '<div class="error">Supabase loading... Refresh in 5 seconds.</div>';
+    setTimeout(initApp, 2000); // Retry
     return;
   }
   supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  initApp();
-});
-
-// Initialize app after load
-function initApp() {
   document.getElementById('loginBtn').onclick = login;
   document.getElementById('refreshBtn').onclick = load;
   supabase.auth.onAuthStateChange((_, session) => {
@@ -64,24 +60,28 @@ function initApp() {
     document.getElementById('user').innerText = currentUser ? `Agent: ${currentUser}` : 'Not logged in';
     if (currentUser) load();
   });
+  document.getElementById('status').innerHTML = '<div class="success">Loaded! Click Login to start.</div>';
   load(); // Initial load
 }
 
-// Login function (fixed)
+// Start when page loads
+window.addEventListener('load', initApp);
+
+// Login function
 async function login() {
   try {
     const email = prompt('Enter your email for magic link:');
     if (!email) return;
     const { error } = await supabase.auth.signInWithOtp({ email });
     if (error) throw error;
-    document.getElementById('status').innerHTML = '<div class="success">Magic link sent! Check your inbox.</div>';
+    document.getElementById('status').innerHTML = '<div class="success">Magic link sent! Check your inbox (including spam).</div>';
   } catch (error) {
-    document.getElementById('status').innerHTML = '<div class="error">Login failed: ' + error.message + '</div>';
+    document.getElementById('status').innerHTML = '<div class="error">Login failed: ' + error.message + '. Try again.</div>';
     console.error('Login error:', error);
   }
 }
 
-// Load tickets (fixed)
+// Load tickets
 async function load() {
   try {
     const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
@@ -101,13 +101,14 @@ async function load() {
         </tr>
       `).join('');
     }
+    document.getElementById('status').innerHTML = '<div class="success">Tickets loaded (' + data.length + ' found).</div>';
   } catch (error) {
-    document.getElementById('status').innerHTML = '<div class="error">Load failed: ' + error.message + '</div>';
+    document.getElementById('status').innerHTML = '<div class="error">Load failed: ' + error.message + '. Check table exists.</div>';
     console.error('Load error:', error);
   }
 }
 
-// Auto-refresh
+// Auto-refresh every 30 seconds
 setInterval(load, 30000);
 </script>
 </body>
